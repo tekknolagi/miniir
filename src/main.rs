@@ -6,6 +6,12 @@ use declarative_enum_dispatch::enum_dispatch;
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash, Debug)]
 pub struct InsnId(pub usize);
 
+impl From<InsnId> for usize {
+    fn from(val: InsnId) -> Self {
+        val.0
+    }
+}
+
 type ValueNumber = u32;
 type Opcode = u16;
 
@@ -93,6 +99,59 @@ struct Function {
     block: Vec<InsnId>,
 }
 
+struct UnionFind<T: Copy + Into<usize>> {
+    forwarded: Vec<Option<T>>,
+}
+
+impl<T: Copy + Into<usize> + PartialEq> UnionFind<T> {
+    fn new() -> UnionFind<T> {
+        UnionFind { forwarded: vec![] }
+    }
+
+    fn at(&self, idx: T) -> Option<T> {
+        self.forwarded.get(idx.into()).copied().flatten()
+    }
+
+    fn set(&mut self, idx: T, value: T) {
+        if idx.into() >= self.forwarded.len() {
+            self.forwarded.resize(idx.into()+1, None);
+        }
+        self.forwarded[idx.into()] = Some(value);
+    }
+
+    pub fn find(&mut self, insn: T) -> T {
+        let result = self.find_const(insn);
+        if result != insn {
+            // Path compression
+            self.set(insn, result);
+        }
+        result
+    }
+
+    fn find_const(&self, insn: T) -> T {
+        let mut result = insn;
+        loop {
+            match self.at(result) {
+                None => return result,
+                Some(insn) => result = insn,
+            }
+        }
+    }
+
+    pub fn make_equal_to(&mut self, insn: T, target: T) {
+        let found = self.find(insn);
+        self.set(found, target);
+    }
+}
+
+impl UnionFind<InsnId> {
+    pub fn apply(&mut self, insn: &mut Insn) {
+        insn.for_each_operand_mut(&mut |operand| {
+            *operand = self.find(*operand);
+        });
+    }
+}
+
 impl Function {
     #[inline]
     fn push_insn(&mut self, insn: Insn) -> InsnId {
@@ -105,17 +164,22 @@ impl Function {
     fn local_value_number(&mut self) {
         let mut map: std::collections::HashMap<&Insn, InsnId> = std::collections::HashMap::new();
         let mut new_block = vec![];
+        let mut uf = UnionFind::<InsnId>::new();
         for &id in &self.block {
             let insn = &self.insns[id.0];
             if insn.value_number() == 0 {
                 new_block.push(id);
                 continue;
             }
-            let Some(_) = map.get(&*insn) else {
+            let Some(replacement) = map.get(&*insn) else {
                 map.insert(&*insn, id);
                 new_block.push(id);
                 continue;
             };
+            uf.make_equal_to(id, *replacement);
+        }
+        for &id in &new_block {
+            uf.apply(&mut self.insns[id.0]);
         }
         self.block = new_block;
     }
