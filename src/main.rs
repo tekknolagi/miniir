@@ -7,6 +7,7 @@ use declarative_enum_dispatch::enum_dispatch;
 pub struct InsnId(pub usize);
 
 type ValueNumber = u32;
+type Opcode = u16;
 
 macro_rules! create_iterators {
     ($($field:ident),*) => {
@@ -41,9 +42,13 @@ struct Const {
     value: u32,
 }
 
+impl Const {
+    fn opcode(&self) -> Opcode { 1 }
+}
+
 impl InsnTrait for Const {
     fn value_number(&self) -> ValueNumber {
-        0x500 | self.value
+        self.opcode() as ValueNumber | self.value as ValueNumber
     }
     fn value_equals(&self, other: &Insn) -> bool {
         let Insn::Const(other_const) = other else { return false; };
@@ -67,9 +72,18 @@ struct Add {
     rhs: InsnId,
 }
 
+impl Add {
+    fn opcode(&self) -> Opcode { 2 }
+}
+
 impl InsnTrait for Add {
     fn value_number(&self) -> ValueNumber {
-        0x1000 | (self.lhs.0 as ValueNumber) << 8 | (self.rhs.0 as ValueNumber)
+        let mut result = self.opcode() as ValueNumber;
+        self.for_each_operand(&mut |operand| {
+            result <<= 8;
+            result |= operand.0 as ValueNumber;
+        });
+        result
     }
     fn value_equals(&self, other: &Insn) -> bool {
         let Insn::Add(other_add) = other else { return false; };
