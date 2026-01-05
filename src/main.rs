@@ -24,10 +24,19 @@ macro_rules! create_iterators {
 
 enum_dispatch!(
 pub trait InsnTrait: std::fmt::Debug {
+    fn opcode(&self) -> Opcode;
     fn value_number(&self) -> ValueNumber { 0 }
     fn value_equals(&self, _other: &Insn) -> bool { false }
     fn for_each_operand(&self, f: &mut dyn FnMut(InsnId));
     fn for_each_operand_mut(&mut self, f: &mut dyn FnMut(&mut InsnId));
+    fn default_value_number(&self) -> ValueNumber {
+        let mut result = self.opcode() as ValueNumber;
+        self.for_each_operand(&mut |operand| {
+            result <<= 8;
+            result |= operand.0 as ValueNumber;
+        });
+        result
+    }
 }
 #[derive(Debug)]
 pub enum Insn {
@@ -42,14 +51,9 @@ struct Const {
     value: u32,
 }
 
-impl Const {
-    fn opcode(&self) -> Opcode { 1 }
-}
-
 impl InsnTrait for Const {
-    fn value_number(&self) -> ValueNumber {
-        self.opcode() as ValueNumber | self.value as ValueNumber
-    }
+    fn opcode(&self) -> Opcode { 1 }
+    fn value_number(&self) -> ValueNumber { self.default_value_number() }
     fn value_equals(&self, other: &Insn) -> bool {
         let Insn::Const(other_const) = other else { return false; };
         self.value == other_const.value
@@ -63,6 +67,7 @@ struct Return {
 }
 
 impl InsnTrait for Return {
+    fn opcode(&self) -> Opcode { 3 }
     create_iterators!(value);
 }
 
@@ -72,19 +77,9 @@ struct Add {
     rhs: InsnId,
 }
 
-impl Add {
-    fn opcode(&self) -> Opcode { 2 }
-}
-
 impl InsnTrait for Add {
-    fn value_number(&self) -> ValueNumber {
-        let mut result = self.opcode() as ValueNumber;
-        self.for_each_operand(&mut |operand| {
-            result <<= 8;
-            result |= operand.0 as ValueNumber;
-        });
-        result
-    }
+    fn opcode(&self) -> Opcode { 2 }
+    fn value_number(&self) -> ValueNumber { self.default_value_number() }
     fn value_equals(&self, other: &Insn) -> bool {
         let Insn::Add(other_add) = other else { return false; };
         self.lhs == other_add.lhs && self.rhs == other_add.rhs
