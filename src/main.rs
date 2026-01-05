@@ -171,6 +171,12 @@ impl Function {
                 new_block.push(id);
                 continue;
             }
+            // TODO(max): Figure out how to look up uf.find version of insn so we can handle cases
+            // like:
+            //   v0 = 42
+            //   v1 = 42
+            //   v2 = v0 + v1
+            //   v3 = v1 + v0
             let Some(replacement) = map.get(&*insn) else {
                 map.insert(&*insn, id);
                 new_block.push(id);
@@ -214,10 +220,9 @@ fn main() {
     let mut function = Function { insns: vec![], block: vec![] };
     let v0 = function.push_insn(Insn::Const(Const { value: 42 }));
     let v1 = function.push_insn(Insn::Const(Const { value: 42 }));
-    let _v2 = function.push_insn(Insn::Const(Const { value: 42 }));
-    let _v3 = function.push_insn(Insn::Add(Add { lhs: v0, rhs: v1 }));
-    let v4 = function.push_insn(Insn::Add(Add { lhs: v0, rhs: v1 }));
-    function.push_insn(Insn::Return(Return { value: v4 }));
+    function.push_insn(Insn::Add(Add { lhs: v0, rhs: v1 }));
+    let res = function.push_insn(Insn::Add(Add { lhs: v1, rhs: v0 }));
+    function.push_insn(Insn::Return(Return { value: res }));
     eprintln!("fun:\n{}", function);
     function.local_value_number();
     eprintln!("fun:\n{}", function);
