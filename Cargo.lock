@@ -3,5 +3,14 @@
 version = 4
 
 [[package]]
+name = "declarative_enum_dispatch"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "80899ee3db84562c2f2c84c4d4cec0de18e88b08edee4ebe5a40d3efb51b5eeb"
+
+[[package]]
 name = "miniir"
 version = "0.1.0"
+dependencies = [
+ "declarative_enum_dispatch",
+]
