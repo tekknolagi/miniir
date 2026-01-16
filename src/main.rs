@@ -43,6 +43,11 @@ pub trait InsnTrait: std::fmt::Debug {
         });
         result
     }
+    fn apply(&mut self, uf: &UnionFind<InsnId>) {
+        self.for_each_operand_mut(&mut |operand| {
+            *operand = uf.find_const(*operand);
+        });
+    }
 }
 #[derive(Debug)]
 pub enum Insn {
@@ -166,23 +171,31 @@ impl Function {
         let mut new_block = vec![];
         let mut uf = UnionFind::<InsnId>::new();
         for &id in &self.block {
-            let insn = &self.insns[id.0];
-            if insn.value_number() == 0 {
-                new_block.push(id);
-                continue;
+            // uf.apply(&mut self.insns[id.0]);
+            // self.insns[id.0].apply(&uf);
+            {
+                let insn = &mut self.insns[id.0];
+                uf.apply(insn);
             }
-            // TODO(max): Figure out how to look up uf.find version of insn so we can handle cases
-            // like:
-            //   v0 = 42
-            //   v1 = 42
-            //   v2 = v0 + v1
-            //   v3 = v1 + v0
-            let Some(replacement) = map.get(&*insn) else {
-                map.insert(&*insn, id);
-                new_block.push(id);
-                continue;
-            };
-            uf.make_equal_to(id, *replacement);
+            {
+                let insn = &self.insns[id.0];
+                if insn.value_number() == 0 {
+                    new_block.push(id);
+                    continue;
+                }
+                // TODO(max): Figure out how to look up uf.find version of insn so we can handle cases
+                // like:
+                //   v0 = 42
+                //   v1 = 42
+                //   v2 = v0 + v1
+                //   v3 = v1 + v0
+                let Some(replacement) = map.get(&*insn) else {
+                    map.insert(&*insn, id);
+                    new_block.push(id);
+                    continue;
+                };
+                uf.make_equal_to(id, *replacement);
+            }
         }
         for &id in &new_block {
             uf.apply(&mut self.insns[id.0]);
