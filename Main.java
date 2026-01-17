@@ -39,6 +39,11 @@ class Insn {
     }
     return root2;
   }
+  Insn apply() {
+    for (int i = 0; i < operands.length; i++) {
+      operands[i] = operands[i].find();
+    }
+  }
 
   protected Insn[] operands = null;
   protected Insn subst = null;
