@@ -10,7 +10,7 @@ class Insn {
   int valueNumber() { return 0; }
   int defaultValueNumber() {
     int result = System.identityHashCode(this.getClass());
-    for (Insn operand : operands) {
+    for (Insn operand : operands()) {
       result <<= 8;
       result |= System.identityHashCode(operand);
     }
@@ -22,7 +22,7 @@ class Insn {
     if (this.getClass() != other.getClass()) {
       return false;
     }
-    return Arrays.equals(operands, other.operands());
+    return Arrays.equals(operands(), other.operands());
   }
   String immediate() { return ""; }
   Insn find() {
@@ -80,6 +80,25 @@ class Add extends Insn {
 
 class Return extends Insn {
   public Return(Insn value) { super(value); }
+}
+
+class BranchEdge extends Insn {
+  public BranchEdge(Block target, Insn... operands) {
+    super(operands);
+    this.target = target;
+  }
+
+  protected Block target;
+}
+
+class CondBranch extends Insn {
+  CondBranch(Insn cond, BranchEdge iftrue, BranchEdge iffalse) {
+    super(cond, iftrue, iffalse);
+  }
+
+  Insn cond() { return operands()[0]; }
+  Insn iftrue() { return operands()[1]; }
+  Insn iffalse() { return operands()[2]; }
 }
 
 class Block {
@@ -221,8 +240,10 @@ class ValueMap {
 class Function {
   Function() { blocks = new ArrayList<>(); }
 
-  void addBlock(Block block) {
-    blocks.add(block);
+  Block addBlock() {
+    Block result = new Block();
+    blocks.add(result);
+    return result;
   }
 
   void localValueNumbering() {
@@ -247,7 +268,8 @@ class Function {
 
 class Main {
     public static void main(String[] args) {
-      Block block = new Block();
+      Function function = new Function();
+      Block block = function.addBlock();
       Insn left = block.append(new Const(1));
       Insn right = block.append(new Const(2));
       Insn add = block.append(new Add(left, right));
@@ -255,8 +277,7 @@ class Main {
       Insn right1 = block.append(new Const(2));
       Insn add1 = block.append(new Add(left, right));
       Insn ret = block.append(new Return(add1));
-      Function function = new Function();
-      function.addBlock(block);
+      Block iftrue = function.addBlock();
       System.out.println("Before LVN:");
       block.print();
       function.localValueNumbering();
