@@ -39,7 +39,7 @@ class Insn {
     }
     return root2;
   }
-  Insn apply() {
+  void apply() {
     for (int i = 0; i < operands.length; i++) {
       operands[i] = operands[i].find();
     }
@@ -55,6 +55,14 @@ class Const extends Insn {
   @Override
   long valueNumber() { return defaultValueNumber(); }
   @Override
+  boolean valueEqual(Insn other) {
+    if (!(other instanceof Const)) {
+      return false;
+    }
+    Const o = (Const) other;
+    return this.value == o.value;
+  }
+  @Override
   String immediate() { return Integer.toString(value); }
 
   private int value;
@@ -64,6 +72,8 @@ class Add extends Insn {
   public Add(Insn left, Insn right) { super(left, right); }
   @Override
   long valueNumber() { return defaultValueNumber(); }
+  @Override
+  boolean valueEqual(Insn other) { return defaultValueEqual(other); }
 }
 
 class Return extends Insn {
