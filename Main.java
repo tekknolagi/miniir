@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 class Insn {
-  Insn(Insn... operands) { this.operands = operands; }
+  Insn(Insn... operands) { this.operands = operands; this.subst = this; }
   Insn[] operands() { return operands; }
   long valueNumber() { return 0; }
   long defaultValueNumber() {
@@ -24,8 +24,24 @@ class Insn {
     return this.operands() == other.operands();
   }
   String immediate() { return ""; }
+  Insn find() {
+    Insn result = this;
+    while (result.subst != result) {
+      result = result.subst;
+    }
+    return result;
+  }
+  Insn replace(Insn other) {
+    Insn root1 = this.find();
+    Insn root2 = other.find();
+    if (root1 != root2) {
+      root1.subst = root2;
+    }
+    return root2;
+  }
 
   protected Insn[] operands = null;
+  protected Insn subst = null;
 }
 
 class Const extends Insn {
